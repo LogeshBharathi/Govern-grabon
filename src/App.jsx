@@ -5,8 +5,9 @@ import UploadState from "./components/UploadState";
 import ProcessingState from "./components/ProcessingState";
 import ResultModal from "./components/ResultModal";
 
-// The API endpoint for the backend service
-const API_ENDPOINT = "http://localhost:8000/api/v1/parse-pdf";
+// Construct the API endpoint using Vite's environment variable syntax
+// The base URL comes from the .env file (prefixed with VITE_), and the path is appended here.
+const API_ENDPOINT = `${import.meta.env.VITE_API_BASE_URL}/api/v1/parse-pdf`;
 
 function App() {
   const [appState, setAppState] = useState("upload"); // 'upload', 'processing', 'result'
@@ -58,16 +59,15 @@ function App() {
       }
 
       // Map the API response to the format expected by the ResultModal component
-      // Handle different possible response structures
       const formattedData = {
         title:
-          result.title ||
           result.job_title ||
+          result.title ||
           result.data?.job_title ||
           "Job Title Not Found",
         organization:
-          result.organization ||
           result.department ||
+          result.organization ||
           result.data?.department ||
           "Organization Not Found",
         vacancies:
@@ -76,11 +76,13 @@ function App() {
           result.data?.vacancies ||
           "Not specified",
         salaryRange:
+          result.salary ||
           result.salary_range ||
           result.pay_scale ||
           result.data?.salary ||
           "Not specified",
         applyBy:
+          result.application_deadline ||
           result.apply_by ||
           result.last_date ||
           result.data?.application_deadline ||
@@ -90,19 +92,13 @@ function App() {
           result.qualification ||
           result.data?.eligibility ||
           "Not specified",
-        salaryDetails:
-          result.salary_details ||
-          result.pay_details ||
-          result.data?.salary_details ||
-          result.data?.salary ||
-          "Not specified",
         howToApply:
           result.how_to_apply ||
           result.application_process ||
           result.data?.how_to_apply ||
           "Check the official notification for application details.",
         applicationUrl: result.application_url || result.data?.application_url,
-        originalFile: file, // Pass the original file for a potential download link
+        originalFile: file,
       };
 
       console.log("Formatted data:", formattedData);

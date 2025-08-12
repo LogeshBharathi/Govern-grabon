@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud } from 'lucide-react';
+import { UploadCloud, AlertCircle } from 'lucide-react';
 
-const UploadState = ({ onFileSelect }) => {
+const UploadState = ({ onFileSelect, error }) => {
   const fileInputRef = useRef(null);
   const [fileName, setFileName] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -42,6 +42,14 @@ const UploadState = ({ onFileSelect }) => {
       <p className="mt-4 text-lg text-gray-600">Upload a government job notification PDF and let our AI create a clean, easy-to-read summary for you.</p>
 
       <div className="mt-10">
+        {/* Display Error Message if it exists */}
+        {error && (
+            <div className="mb-4 flex items-center justify-center gap-2 p-3 bg-red-100 text-red-700 font-medium rounded-lg">
+                <AlertCircle className="w-5 h-5" />
+                <span>{error}</span>
+            </div>
+        )}
+
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -67,7 +75,6 @@ const UploadState = ({ onFileSelect }) => {
             accept=".pdf"
           />
         </div>
-        {fileName && <p className="mt-4 text-sm text-gray-600">File selected: {fileName}</p>}
       </div>
     </div>
   );

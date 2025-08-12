@@ -1,61 +1,155 @@
-import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import Footer from './components/Footer';
-import UploadState from './components/UploadState';
-import ProcessingState from './components/ProcessingState';
-import ResultModal from './components/ResultModal';
+import React, { useState } from "react";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import UploadState from "./components/UploadState";
+import ProcessingState from "./components/ProcessingState";
+import ResultModal from "./components/ResultModal";
 
-// Mock data that the "AI" will produce
-const MOCK_JOB_DATA = {
-    title: "Recruitment of Technician Grade-I Signal & Technician Grade-III",
-    organization: "Railway Recruitment Board (RRB)",
-    vacancies: "6238",
-    salaryRange: "Level 2 to 5",
-    applyBy: "28-07-2025",
-    eligibility: "Age Limit: 18 - 33 years for Technician Grade-I Signal, 18 - 30 years for Technician Grade III posts. Candidates should possess all the prescribed educational and technical qualifications for the post before the closing date of application.",
-    salaryDetails: "Technician Grade-I Signal: Level-5, Initial pay: Rs. 29,200. Technician Grade III: Level-2, Initial pay: Rs. 19,900.",
-    howToApply: "Candidates must apply online through the official websites of the RRBs. Details will be available on the respective RRB websites.",
-};
-
+// The API endpoint for the backend service
+const API_ENDPOINT = "http://localhost:8000/api/v1/parse-pdf";
 
 function App() {
-  const [appState, setAppState] = useState('upload'); // 'upload', 'processing', 'result'
+  const [appState, setAppState] = useState("upload"); // 'upload', 'processing', 'result'
   const [jobData, setJobData] = useState(null);
-  
-  // This effect simulates the backend processing
-  useEffect(() => {
-    if (appState === 'processing') {
-      const timer = setTimeout(() => {
-        // After 3.5s total (1.5s parsing + 2s summarizing), show results
-        setJobData(MOCK_JOB_DATA);
-        setAppState('result');
-      }, 3500);
+  const [error, setError] = useState(null);
 
-      return () => clearTimeout(timer);
+  const handleFileSelect = async (file) => {
+    if (!file) return;
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setError("File size too large. Please upload a PDF smaller than 10MB.");
+      return;
     }
-  }, [appState]);
 
-  const handleFileSelect = (file) => {
-    if (file) {
-      setAppState('processing');
+    // Validate file type
+    if (file.type !== "application/pdf") {
+      setError("Please upload a valid PDF file.");
+      return;
+    }
+
+    setAppState("processing");
+    setError(null); // Clear previous errors
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      console.log("Uploading file to:", API_ENDPOINT);
+      const response = await fetch(API_ENDPOINT, {
+        method: "POST",
+        body: formData,
+      });
+
+      console.log("Response status:", response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log("API Response:", result);
+
+      // Check if the response contains valid data
+      if (!result || Object.keys(result).length === 0) {
+        throw new Error("No data received from the server. Please try again.");
+      }
+
+      // Map the API response to the format expected by the ResultModal component
+      // Handle different possible response structures
+      const formattedData = {
+        title:
+          result.title ||
+          result.job_title ||
+          result.data?.job_title ||
+          "Job Title Not Found",
+        organization:
+          result.organization ||
+          result.department ||
+          result.data?.department ||
+          "Organization Not Found",
+        vacancies:
+          result.vacancies ||
+          result.number_of_posts ||
+          result.data?.vacancies ||
+          "Not specified",
+        salaryRange:
+          result.salary_range ||
+          result.pay_scale ||
+          result.data?.salary ||
+          "Not specified",
+        applyBy:
+          result.apply_by ||
+          result.last_date ||
+          result.data?.application_deadline ||
+          "Not specified",
+        eligibility:
+          result.eligibility ||
+          result.qualification ||
+          result.data?.eligibility ||
+          "Not specified",
+        salaryDetails:
+          result.salary_details ||
+          result.pay_details ||
+          result.data?.salary_details ||
+          result.data?.salary ||
+          "Not specified",
+        howToApply:
+          result.how_to_apply ||
+          result.application_process ||
+          result.data?.how_to_apply ||
+          "Check the official notification for application details.",
+        applicationUrl: result.application_url || result.data?.application_url,
+        originalFile: file, // Pass the original file for a potential download link
+      };
+
+      console.log("Formatted data:", formattedData);
+      setJobData(formattedData);
+      setAppState("result");
+    } catch (err) {
+      console.error("Error uploading file:", err);
+      setError(err.message || "Failed to process the PDF. Please try again.");
+      setAppState("upload"); // Return to the upload screen on error
     }
   };
 
   const handleReset = () => {
-    setAppState('upload');
+    setAppState("upload");
     setJobData(null);
+    setError(null);
   };
-  
+
   return (
     <div className="bg-gray-100 flex flex-col min-h-screen">
       <Header />
-      
+
       <main className="container mx-auto px-4 lg:px-8 py-12 md:py-20 flex-grow">
-        {appState === 'upload' && <UploadState onFileSelect={handleFileSelect} />}
-        {appState === 'processing' && <ProcessingState />}
+        {appState === "upload" && (
+          <UploadState onFileSelect={handleFileSelect} error={error} />
+        )}
+        {appState === "processing" && <ProcessingState />}
       </main>
-      
-      {appState === 'result' && <ResultModal jobData={jobData} onClose={handleReset} />}
+
+      {error && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-red-600 mb-2">Error</h3>
+            <p className="text-gray-700 mb-4">{error}</p>
+            <button
+              onClick={handleReset}
+              className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {appState === "result" && (
+        <ResultModal jobData={jobData} onClose={handleReset} />
+      )}
 
       <Footer />
     </div>
